@@ -1,2 +1,0 @@
-#!/bin/bash
-ovs-ofctl dump-flows $1 --protocol=OpenFlow13

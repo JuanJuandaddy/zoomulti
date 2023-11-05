@@ -1,0 +1,3 @@
+#!/bin/bash
+#推送脚本
+expect -f push
