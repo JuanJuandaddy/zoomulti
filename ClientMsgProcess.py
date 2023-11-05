@@ -227,7 +227,6 @@ class ClientMsgProcess(object):
                     self.hook_handler(controller_id=controller,msg=msg)
 
                 self.client.server.FLOOD_IP.append(dst_ip)
-
     def _packet_out(self,msg):
         """
             由Server代理发送packetout，用于处理跨域ARP请求
