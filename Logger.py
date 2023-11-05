@@ -1,6 +1,4 @@
-"""
-    日志处理器
-"""
+
 import logging
 import colorlog
 class Logger(object):
