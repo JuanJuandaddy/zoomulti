@@ -1,0 +1,13 @@
+#!/usr/bin/expect
+set user "SXFTreeNewBee"
+set passwd "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"
+set remote "https://github.com/SXFTreeNewBee/zoomulti.git"
+set branch "master"
+set name "origin"
+set timeout 5
+spawn git push -u $name $branch
+expect "Username*"
+send "$user\n"
+expect "Password*"
+send "$passwd\n"
+expect eof

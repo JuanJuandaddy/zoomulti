@@ -224,6 +224,9 @@ class Server(object):
 
         return list(self.graph.neighbors(switch))
 
+    def exist_edge(self,u,v)->bool:
+        return self.graph.has_edge(u,v)
+
     def get_controller_load(self,controller):
         return self.controller_pktin_load[controller]["pktin"]
 
@@ -255,57 +258,67 @@ class Server(object):
             spawn(self.vikor_strategy,controller)
 
     def search_migration_plan(self,**kwargs):
-        """向内扩散，选取交换机集合，返回如下格式的迁移方案
+        """
+        核心逻辑
+        向内扩散，选取交换机集合，返回如下格式的迁移方案
         migration_plan={controller:[[s1,s3....],[s3,s4...]]}
         """
         migration_plan={}
         balance_load=kwargs["balance_load"]#需要达到的平衡阈值，选取的迁移交换机集合的负载大小大于该值即可
-        edge_switches=kwargs["edge_switches"]
-        switches_pkt_load=kwargs["switches_pkt_load"]
+        switches=kwargs["switches"]
+        switches_pkt_load=kwargs["switches_pkt_load"]#过载控制器下的交换机负载信息
         dest_controller=kwargs["dest_controller"]
         for controller in dest_controller:
             migration_plan.setdefault(controller,[])
-        def filter_sw(sw):
-            if sw in self.controller_to_switches[kwargs["controller"]]:
-                return sw
-        for switch in edge_switches:#O(n3)复杂度
-            #处理的主逻辑
-            ready_switches = [switch] # 待迁移的交换机集合,先将首个边缘交换机插入，然后依次判定
-            ready_switches_load =switches_pkt_load[switch].get('pktin_speed')
-            adjacency_nodes=list(filter(filter_sw,self.get_adjacency_switches(switch)))#获取边缘节点的相邻节点，
-            # 并排除非本地域的交换机
-            if ready_switches_load>=balance_load:#如果当前边缘交换机恰好满足负载阈值需求，则直接放入迁移集合
-                for dest in dest_controller:#选择目的控制器
-                    after_migration_controller_load = ready_switches_load + self.get_controller_load(dest)
-                    if after_migration_controller_load <= CONTROLLER_LOAD_THRESHOLD:
-                        # 如果迁移过后不过载，加入到迁移方案集合
-                        migration_plan[dest].append(ready_switches)
-                    else:
-                        continue
+        
+        # def filter_sw(sw):
+        #     if sw in self.controller_to_switches[kwargs["controller"]]:
+        #         return sw
+        # for switch in switches:#O(n3)复杂度
+        #     #处理的主逻辑
+        #     ready_switches = [switch] # 待迁移的交换机集合,先将首个交换机插入，然后依次判定
+        #     ready_switches_load =switches_pkt_load[switch].get('pktin_speed')
+        #     adjacency_nodes=list(filter(filter_sw,self.get_adjacency_switches(switch)))#获取节点的相邻节点，
+        #     # 并排除非本地域的交换机
+        #     if ready_switches_load>=balance_load:#如果当前边缘交换机恰好满足负载阈值需求，则直接放入迁移集合
+        #         for dest in dest_controller:#选择目的控制器
+        #             after_migration_controller_load = ready_switches_load + self.get_controller_load(dest)
+        #             if after_migration_controller_load <= CONTROLLER_LOAD_THRESHOLD:
+        #                 # 如果迁移过后不过载，加入到迁移方案集合
+        #                 migration_plan[dest].append(ready_switches)
+        #             else:
+        #                 continue
+        #
+        #     else:
+        #         for adjacency_sw in adjacency_nodes:
+        #             sum_load=ready_switches_load+switches_pkt_load[adjacency_sw].get('pktin_speed')
+        #             if sum_load<balance_load:
+        #                 #不满足则继续向内扩,只扩到边界交换机的领接节点
+        #                 ready_switches.append(adjacency_sw)
+        #                 ready_switches_load=sum_load
+        #                 continue
+        #             else:
+        #                 #满足的负载阈值，则进行平衡负载，判断应该加入到哪个控制器，并保证加入后迁入控制器不过载,并不一定要保证sumload大于平衡阈值，退而求其次
+        #                 #load=sum([switches_pkt_load[sw].get('pktin_speed') for sw in ready_switches])#计算迁移方案的负载综合
+        #                 for dest in dest_controller:
+        #                     after_migration_controller_load=sum_load+self.get_controller_load(dest)
+        #                     if after_migration_controller_load<=CONTROLLER_LOAD_THRESHOLD:
+        #                         ready_switches.append(adjacency_sw)  # 将这个交换机加入到待迁移的集合中
+        #                         #如果迁移过后不过载，加入到迁移方案集合
+        #                         migration_plan[dest].append(ready_switches)
+        #                     else:
+        #                         #退而求其次，表明加入了该交换机虽然能够使其超过平均阈值，但是迁入的控制器会过载，则不将该交换机迁入
+        #                         migration_plan[dest].append(ready_switches)
+        sorted_sw_load = { k : v for k, v in
+                           sorted(switches_pkt_load.items(), key = lambda item : item[1]['pktin_speed'], reverse = True) }
 
-            else:
-                for adjacency_sw in adjacency_nodes:
-                    sum_load=ready_switches_load+switches_pkt_load[adjacency_sw].get('pktin_speed')
-                    if sum_load<balance_load:
-                        #不满足则继续向内扩,只扩到边界交换机的领接节点
-                        ready_switches.append(adjacency_sw)
-                        ready_switches_load=sum_load
-                        continue
-                    else:
-                        #满足的负载阈值，则进行平衡负载，判断应该加入到哪个控制器，并保证加入后迁入控制器不过载,并不一定要保证sumload大于平衡阈值，退而求其次
-                        #load=sum([switches_pkt_load[sw].get('pktin_speed') for sw in ready_switches])#计算迁移方案的负载综合
-                        for dest in dest_controller:
-                            after_migration_controller_load=sum_load+self.get_controller_load(dest)
-                            if after_migration_controller_load<=CONTROLLER_LOAD_THRESHOLD:
-                                ready_switches.append(adjacency_sw)  # 将这个交换机加入到待迁移的集合中
-                                #如果迁移过后不过载，加入到迁移方案集合
-                                migration_plan[dest].append(ready_switches)
-                            else:
-                                #退而求其次，表明加入了该交换机虽然能够使其超过平均阈值，但是迁入的控制器会过载，则不将该交换机迁入
+        # 创建新的字典，格式为{（order，sw）: pkt的值}
+        sw_load = { i + 1 : (k, v['pktin_speed']) for i, (k, v) in enumerate(sorted_sw_load.items()) }
 
-                                migration_plan[dest].append(ready_switches)
-
-
+        # 转化为列表
+        load_list = [sw_load[i + 1][1] for i, k in enumerate(sorted_sw_load.keys())]
+        
+        
         return migration_plan
 
     def estimate_cost(self,plan,**kwargs):
@@ -338,6 +351,7 @@ class Server(object):
                     "dest_controller":dest_controller,
                     "migration_set":switches_migration_set,
                     "variance":variance,
+                    
                     "set_percentage":sum([float(switches_pktin_load.get(sw).get("percentage").strip("%"))
                                           for sw in switches_migration_set])
                 }
@@ -367,8 +381,8 @@ class Server(object):
         return matrix
 
     def update_controller_to_switches(self,src:int,dst:int,m_set:List):
-        src_controller_switches = self.controller_to_switches[src]
-        dst_controller_switches = self.controller_to_switches[dst]
+        src_controller_switches = deepcopy(self.controller_to_switches[src])
+        dst_controller_switches = deepcopy(self.controller_to_switches[dst])
 
         for sw in m_set:
             src_controller_switches.remove(sw)
@@ -382,75 +396,26 @@ class Server(object):
         for sw in m_set:
             self.switches[sw]=dst
 
-    def update_sw_ip(self,src:int,dst:int,m_set:List):
-
-        sw_ip=deepcopy(self.sw_ip)
-        for switch in m_set:
-            for sw,port in sw_ip.keys():
-                if switch.__eq__(sw):
-                    self.sw_ip[(sw,port)]['area_id']=dst
-
-    def update_edge_sw(self,src:int,dst:int,m_set:List):
-        #过程较为复杂,
-
-        src_controller_handler,dst_controller_handler=self.controller_obj[src-1],self.controller_obj[dst-1]
-        msg_type="update_global"#更新全局信息，access_table以及一些其他信息
-
-        edge_sw=deepcopy(self.edge_sw)
-
-
-        for switch in m_set:
-            edge_sw[dst].append(switch)
-            if switch in edge_sw[src]:
-                edge_sw[src].remove(switch)
-
-        self.edge_sw=edge_sw
-
-        dst_change_list=[{key:self.sw_ip[key]} for key in self.sw_ip.keys() if key[0] in m_set]
-
-        src_msg = json.dumps({
-            "msg_type": msg_type,
-            "data": {
-                "dst":dst,
-                "m_set":m_set
-            }
-        })
-        dst_msg = json.dumps({
-            "msg_type": msg_type,
-            "data": {
-                "dst": dst,
-                "m_set": m_set,
-                "dcl":dst_change_list
-            }
-        })
-
-        spawn(src_controller_handler.hook_handler, controller_id=src, msg=src_msg)
-
-        spawn(dst_controller_handler.hook_handler, controller_id=dst, msg=dst_msg)
-
     def update_switches_pktin_load(self,src:int,dst:int,m_set:List):
+        #body={sw1:{pktin_speed:xxx,percentage：xxx,pktin_size:xxx}....}}
 
         for sw in m_set:
 
             self.switches_pktin_load[dst][sw]=self.switches_pktin_load[src][sw]
-
+    
     def update_global(self,**kwargs):
         #更新全局消息
         src=kwargs['src_controller']#源控制器
         dst=kwargs['dst_controller']#目的控制器
         m_set=kwargs['m_set']#迁移的交换机，处于源控制下的交换机
         # 更改控制器-交换机的映射
-        spawn(self.update_controller_to_switches,src=src,dst=dst,m_set=m_set)
+        self.update_controller_to_switches(src=src,dst=dst,m_set=m_set)
         #更改全局switches
-        spawn(self.update_switches,src=src,dst=dst,m_set=m_set)
-        #更新全局sw_ip
-        spawn(self.update_sw_ip,src=src,dst=dst,m_set=m_set)
+        self.update_switches(src=src,dst=dst,m_set=m_set)
         #更新switches_pktin_load
-        spawn(self.update_switches_pktin_load,src=src,dst=dst,m_set=m_set)
-        #更改edge交换机的area
-        #spawn(self.update_edge_sw,src=src,dst=dst,m_set=m_set)
+        self.update_switches_pktin_load(src=src,dst=dst,m_set=m_set)
 
-
+        
     def start_migration_plan(self,src_controller:str,plan:dict):
         #开始交换机迁移
         dst_controller=plan.get("dest_controller")#目的控制器
@@ -473,7 +438,7 @@ class Server(object):
 
     def vikor_strategy(self,controller):
         switches_pkt_load=deepcopy(self.switches_pktin_load[controller])#控制器下所有交换机的负载
-        edge_switches=self.edge_sw[controller]#控制器的掌管的边缘交换机
+        switches=self.controller_to_switches[controller]#控制器的掌管的交换机
         dest_controller=self.adjacency_controller[controller]#领接控制器作为迁移的目的控制器
         cluster_avg_load=self.get_avg_load()#集群的平均负载
         controller_load=self.controller_pktin_load[controller].get('pktin')#控制器的负载
@@ -483,7 +448,8 @@ class Server(object):
         migration_plan=spawn(self.search_migration_plan,controller=controller,balance_load=balance_load,
                                                   dest_controller=dest_controller,
                                                   switches_pkt_load=switches_pkt_load,
-                                                  edge_switches=edge_switches).get()
+                                                  switches=switches).get()
+        self.log.info(f'迁移方案集合：{migration_plan}')
         if not migration_plan:
             self.log.warning("没有合适的迁移方案")
             return
@@ -522,10 +488,9 @@ class Server(object):
         while 1:
 
             self.balance_check()
+
             self.log.info(f'目前控制器负载为=>')
             utils.display_controller_load(self.controller_pktin_load)
-            self.log.info(f'目前的集群平均负载为：{self.get_avg_load()}')
-            self.log.info(f'目前的集群负载均衡度为为：{self.get_statistic_load_rate()}')
             time.sleep(5)
 
 def main():

@@ -10,3 +10,18 @@ def strip_s(sw:str):
 
 def strip_c(controller:str):
     return int(controller.strip('c'))
+
+def generate_combinations(arr,load):
+    def backtrack(start, path):
+        combinations.append(path[:])
+        for i in range(start, len(arr)):
+            path.append(arr[i])
+            print(path)
+            
+            backtrack(i + 1, path)
+            
+            path.pop()
+
+    combinations = []
+    backtrack(0, [])
+    return combinations
