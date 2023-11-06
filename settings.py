@@ -72,6 +72,7 @@ CONTROLLER_EDGE_SWITCHES={
     "c4":["s43","s40"],
     "c5":["s51","s52","s54","s55"]
 }
+IF_ARP=False
 PING_NUM=5
 PING_INTERVAL=0.5
 PING_OUT_MODE=0

@@ -74,7 +74,7 @@ class Controller(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(Controller, self).__init__(*args, **kwargs)
         #某些功能的开关
-        self.IF_ARP=False #是否开启ARP注册
+        self.IF_ARP=settings.IF_ARP #是否开启ARP注册
 
         self.IF_PING=True if self.IF_ARP else False
         # =========================本域========================
@@ -151,7 +151,7 @@ class Controller(app_manager.RyuApp):
     # ===================================轮询======================================
     def monitor_spawn(self):
         hub.spawn(self._discover)
-        #hub.spawn(self._display_data)
+        hub.spawn(self._display_data)
         hub.spawn(self._performance_pktin)
 
     def _discover(self):
@@ -168,9 +168,7 @@ class Controller(app_manager.RyuApp):
 
     def _display_data(self):
         while 1:
-            print(f'access_ports:{self.access_ports}')
-            print(f'access_table:{self.access_table}')
-            print(f'edge_sw:{self.edge_sw}')
+            print(self.switches_pktin_load)
             time.sleep(5)
 
     def _performance_pktin(self):

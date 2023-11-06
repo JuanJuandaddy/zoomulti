@@ -97,7 +97,6 @@ class ConRecMsgProcess(object):
 
         if dst_id!=self.controller.controller_id:
 
-
             #更改access_talbe,不删除
             for switch in m_set:
                 for sw, port in access_table.keys():
