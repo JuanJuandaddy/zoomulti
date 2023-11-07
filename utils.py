@@ -1,5 +1,7 @@
 # -*-coding:utf-8-*-
 # -*-this is a python script -*-
+import numpy as np
+from typing import List,Dict
 def display_controller_load(controller_load:dict):
     print("c_name |    pktin    |    delay")
     for k,v in controller_load.items():
@@ -11,7 +13,7 @@ def strip_s(sw:str):
 def strip_c(controller:str):
     return int(controller.strip('c'))
 
-def generate_combinations(arr,sw_load):
+def generate_combinations(arr:List,sw_load:Dict):
     def backtrack(start, path,sw):
         combinations.append(path[:])
         sw_list.append(sw[:])
@@ -26,4 +28,4 @@ def generate_combinations(arr,sw_load):
     sw_list=[]
     combinations = []
     backtrack(0, [],[])
-    return combinations,sw_list
+    return combinations[1:],sw_list[1:]

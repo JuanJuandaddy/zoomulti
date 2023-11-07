@@ -256,7 +256,6 @@ class ClientMsgProcess(object):
         sw_pktin={}
 
         controller_id,controller_pktin,controller_delay,switches_pktin=data["controller_id"],data["controller_pktin"],data["controller_delay"],data["switches_pktin"]
-
         if controller_id not in self.client.server.controller_pktin_load.keys():
 
             #首次注册
@@ -294,7 +293,7 @@ class ClientMsgProcess(object):
             self.client.server.controller_pktin_load[controller_id]["pktin"] = controller_pktin
 
             self.client.server.controller_pktin_load[controller_id]["delay"] = controller_delay
-
+ 
             for dp_dpsp in switches_pktin:
 
                 self.client.server.switches_pktin_load[controller_id][dp_dpsp[0]]["pktin_speed"] = dp_dpsp[1]

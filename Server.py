@@ -265,7 +265,7 @@ class Server(object):
         """
         migration_plan={}
         balance_load=kwargs["balance_load"]#需要达到的平衡阈值，选取的迁移交换机集合的负载大小大于该值即可
-        switches=kwargs["switches"]
+        switches=kwargs["switches"]#过载控制器掌管的交换机
         switches_pkt_load=kwargs["switches_pkt_load"]#过载控制器下的交换机负载信息
         dest_controller=kwargs["dest_controller"]
         for controller in dest_controller:
@@ -317,10 +317,17 @@ class Server(object):
 
         # 转化为列表
         load_list = [sw_load[i + 1][1] for i, k in enumerate(sorted_sw_load.keys())]
-        
-        
-        return migration_plan
+    
+        sw_load_list,sw_index_list=utils.generate_combinations(arr=load_list,sw_load = sw_load)
+        print(sw_load_list,sw_index_list,sep = '\n')
+        for dst in dest_controller :
+            for ml,ms in zip(sw_load_list,sw_index_list):
+                plan_sum_load=np.sum(ml)
+                if plan_sum_load>=balance_load:
+                    migration_plan[dst].append(ms)
 
+        return migration_plan
+    
     def estimate_cost(self,plan,**kwargs):
         #评估迁移方案所带来的代价,负载均衡度与平均迁移代价
         #plan={dst_controller:[[s1,s2....],[s2,s3....]]}
@@ -344,16 +351,14 @@ class Server(object):
                 controller_load[controller]['pktin']=pre_load-cost#预估迁移走后控制器的负载是多少
                 controller_load[dest_controller]['pktin']+=cost#预估目标控制器迁移完成后的负载是多少
 
-                variance=np.var([load['pktin'] for load in controller_load.values()])#y预估迁移完成后的集群负载均衡度
+                variance=np.var([load['pktin'] for load in controller_load.values()])#预估迁移完成后的集群负载均衡度
                 #======计算迁移代价包括迁走的交换机数量、以及当前迁移方案中交换机对于控制器的影响，成本指标
                 #影响的值为交换机的百分比综合
                 cost_plan[plan_order]={
                     "dest_controller":dest_controller,
                     "migration_set":switches_migration_set,
                     "variance":variance,
-                    
-                    "set_percentage":sum([float(switches_pktin_load.get(sw).get("percentage").strip("%"))
-                                          for sw in switches_migration_set])
+                    "set_len":len(switches_migration_set)
                 }
                 plan_order+=1
 
@@ -377,7 +382,7 @@ class Server(object):
         for order, p in plan.items():
             o = order
             matrix[o, 0] = p.get('variance')
-            matrix[o, 1] =p.get('set_percentage')
+            matrix[o, 1] =p.get('set_len')
         return matrix
 
     def update_controller_to_switches(self,src:int,dst:int,m_set:List):
@@ -391,18 +396,19 @@ class Server(object):
         self.controller_to_switches[src] = src_controller_switches
         self.controller_to_switches[dst] = dst_controller_switches
 
+        
     def update_switches(self,src:int,dst:int,m_set:List):
 
         for sw in m_set:
             self.switches[sw]=dst
-
+        
     def update_switches_pktin_load(self,src:int,dst:int,m_set:List):
         #body={sw1:{pktin_speed:xxx,percentage：xxx,pktin_size:xxx}....}}
 
         for sw in m_set:
 
             self.switches_pktin_load[dst][sw]=self.switches_pktin_load[src][sw]
-    
+        
     def update_global(self,**kwargs):
         #更新全局消息
         src=kwargs['src_controller']#源控制器
@@ -415,15 +421,16 @@ class Server(object):
         #更新switches_pktin_load
         self.update_switches_pktin_load(src=src,dst=dst,m_set=m_set)
 
-        
     def start_migration_plan(self,src_controller:str,plan:dict):
-        #开始交换机迁移
+        #开始交换机迁移,首先更新全局关系
         dst_controller=plan.get("dest_controller")#目的控制器
 
         m_set=plan.get("migration_set")#迁移的交换机集合
-
+        
+        self.update_global(src_controller = src_controller, dst_controller = dst_controller, m_set = m_set)  # 更新拓扑关系
+        
         dest_controller_ip,dest_controller_port=settings.CONTROLLER_IP,settings.CONTROLLER_PORTS[
-                                                    settings.CONTROLLERS.index(f'c{dst_controller}')]
+                                                    settings.CONTROLLERS.index(f'c{dst_controller-1}')]
 
         commands=[f'ovs-vsctl set-controller s{switch} tcp:{dest_controller_ip}:{dest_controller_port}'
                   for switch in m_set]
@@ -433,9 +440,7 @@ class Server(object):
         # 等待交换机迁移完成
         for process in processes:
             process.wait()
-
-        self.update_global(src_controller=src_controller,dst_controller=dst_controller,m_set=m_set)#更新拓扑关系
-
+        
     def vikor_strategy(self,controller):
         switches_pkt_load=deepcopy(self.switches_pktin_load[controller])#控制器下所有交换机的负载
         switches=self.controller_to_switches[controller]#控制器的掌管的交换机
@@ -449,7 +454,6 @@ class Server(object):
                                                   dest_controller=dest_controller,
                                                   switches_pkt_load=switches_pkt_load,
                                                   switches=switches).get()
-        self.log.info(f'迁移方案集合：{migration_plan}')
         if not migration_plan:
             self.log.warning("没有合适的迁移方案")
             return
@@ -457,7 +461,7 @@ class Server(object):
 
         #构建因子矩阵
         load_matrix=self.build_load_matrix(plan=plan_with_cost)
-
+        
         #vikor决策
         vikor=Vikor(load_matrix=load_matrix)
 
@@ -488,10 +492,9 @@ class Server(object):
         while 1:
 
             self.balance_check()
-
             self.log.info(f'目前控制器负载为=>')
             utils.display_controller_load(self.controller_pktin_load)
-            time.sleep(5)
+            time.sleep(10)
 
 def main():
     server=Server()

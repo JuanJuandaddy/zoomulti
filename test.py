@@ -22,8 +22,10 @@ load_list = [sw_load[i+1][1] for i, k in enumerate(sorted_sw_load.keys())]
 print(sorted_sw_load)
 print(sw_load)
 print(load_list)
-__import__('utils').generate_combinations(load_list,70)
-
+a,b=__import__('utils').generate_combinations(load_list,sw_load)
+print(a,b,sep = '\n')
+a=[1213,12312]
+print(np.sum(a))
 
 #
 

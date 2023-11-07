@@ -4,9 +4,9 @@ import numpy as np
 class Vikor(object):
     def __init__(self,**kwargs):
         self.args=kwargs
-        self.w=[0.4,0.3,0.3]#权重
+        self.w=[0.8,0.2]#权重
         self.v=0.5
-        self.norm_type=['min','min','min']#全为成本指标
+        self.norm_type=['min','min']#全为成本指标
     #step:1 确定标准化矩阵
     def normal_matrix(self,a):
         r_matrix=np.zeros(a.shape)
