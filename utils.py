@@ -11,17 +11,19 @@ def strip_s(sw:str):
 def strip_c(controller:str):
     return int(controller.strip('c'))
 
-def generate_combinations(arr,load):
-    def backtrack(start, path):
+def generate_combinations(arr,sw_load):
+    def backtrack(start, path,sw):
         combinations.append(path[:])
+        sw_list.append(sw[:])
         for i in range(start, len(arr)):
             path.append(arr[i])
-            print(path)
-            
-            backtrack(i + 1, path)
-            
+            for k,v in sw_load.items():
+                if v[1]==arr[i] and v[0] not in sw:
+                    sw.append(v[0])
+            backtrack(i + 1, path,sw)
             path.pop()
-
+            sw.pop()
+    sw_list=[]
     combinations = []
-    backtrack(0, [])
-    return combinations
+    backtrack(0, [],[])
+    return combinations,sw_list
