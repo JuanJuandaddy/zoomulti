@@ -207,6 +207,7 @@ class Server(object):
         return round(rate/num,4)
 
     def get_avg_load(self):
+        # 获取集群的平均负载
         pktin_load = 0
         controller_load = self.controller_pktin_load
         if not controller_load:
@@ -247,7 +248,7 @@ class Server(object):
         if any(result):#需要进行交换机迁移
             overload_controllers=list(filter(exclude_False,result))#过载控制器
             for c in overload_controllers:
-                self.log.info(f"控制器{c}过载进行交换机迁移")
+                self.log.warning(f"控制器{c}过载进行交换机迁移")
                 spawn(self.start_controller_switches_migration,c) #对每个决策开启协程处理
         else:#不需要进行交换机迁移
             self.log.info("集群稳定")
@@ -471,7 +472,7 @@ class Server(object):
 
         plan_order=vikor.vikor()
         final_migration_plan=plan_with_cost[plan_order]
-        self.log.warning(f'最终的决策方案为：{final_migration_plan}')
+        utils.display_migration_plan(controller,final_migration_plan)
         spawn(self.start_migration_plan,src_controller=controller,plan=final_migration_plan)#开始迁移
 
     def write_pktin_load(self):
@@ -494,11 +495,11 @@ class Server(object):
 
     def monitor(self):  # 2s打印拓扑
         while 1:
-
-            self.balance_check()
-            self.log.info(f'目前控制器负载为=>')
-            utils.display_controller_load(self.controller_pktin_load)
             time.sleep(10)
+            self.balance_check()
+            utils.display_controller_load(self.controller_pktin_load)
+            #utils.display_controller_sw_load(self.switches_pktin_load)
+            utils.display_cluster_status(self.get_avg_load(),self.get_statistic_load_rate())
 
 def main():
     server=Server()
