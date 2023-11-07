@@ -8,6 +8,7 @@ import networkx as nx
 from StreamInfo import InfoProcess
 from gevent import monkey;monkey.patch_all()
 from gevent import spawn
+from copy import deepcopy
 import settings
 class ClientMsgProcess(object):
     def __init__(self,client):
@@ -47,7 +48,7 @@ class ClientMsgProcess(object):
 
         self.client.server.switches[dpid] = master_controller
 
-        controller_to_switches=self.client.server.controller_to_switches
+        controller_to_switches=deepcopy(self.client.server.controller_to_switches)
 
         if master_controller not in controller_to_switches.keys():
             self.client.server.controller_to_switches.setdefault(master_controller,[])

@@ -314,12 +314,12 @@ class Server(object):
 
         # 创建新的字典，格式为{（order，sw）: pkt的值}
         sw_load = { i + 1 : (k, v['pktin_speed']) for i, (k, v) in enumerate(sorted_sw_load.items()) }
-
+        
         # 转化为列表
         load_list = [sw_load[i + 1][1] for i, k in enumerate(sorted_sw_load.keys())]
     
         sw_load_list,sw_index_list=utils.generate_combinations(arr=load_list,sw_load = sw_load)
-        print(sw_load_list,sw_index_list,sep = '\n')
+        
         for dst in dest_controller :
             for ml,ms in zip(sw_load_list,sw_index_list):
                 plan_sum_load=np.sum(ml)
@@ -386,29 +386,33 @@ class Server(object):
         return matrix
 
     def update_controller_to_switches(self,src:int,dst:int,m_set:List):
-        src_controller_switches = deepcopy(self.controller_to_switches[src])
-        dst_controller_switches = deepcopy(self.controller_to_switches[dst])
-
+        if src==dst:
+            return
         for sw in m_set:
-            src_controller_switches.remove(sw)
-            dst_controller_switches.append(sw)
-
-        self.controller_to_switches[src] = src_controller_switches
-        self.controller_to_switches[dst] = dst_controller_switches
+            self.controller_to_switches[src].remove(sw)
+            #不需要向目的控制器的交换机列表添加迁移交换机，因为迁移交换机在迁移过后会触发目的控制器的sw_register事件，会自动注册
 
         
     def update_switches(self,src:int,dst:int,m_set:List):
-
+        if src==dst:
+            return
         for sw in m_set:
             self.switches[sw]=dst
         
     def update_switches_pktin_load(self,src:int,dst:int,m_set:List):
+        if src==dst:
+            return
         #body={sw1:{pktin_speed:xxx,percentage：xxx,pktin_size:xxx}....}}
-
+        to_zero = {
+            "pktin_speed" : 0,
+            "pktin_size" : 0,
+            "percentage" : "{}%".format(0.0)
+        }
         for sw in m_set:
-
+            
             self.switches_pktin_load[dst][sw]=self.switches_pktin_load[src][sw]
-        
+            
+            self.switches_pktin_load[src][sw]=to_zero
     def update_global(self,**kwargs):
         #更新全局消息
         src=kwargs['src_controller']#源控制器

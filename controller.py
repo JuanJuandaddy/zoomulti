@@ -521,7 +521,7 @@ class Controller(app_manager.RyuApp):
         dpid = int(datapath.id)
         self.dps[dpid]=datapath
         self.log.info("switch {} connect to controller".format(dpid))
-
+        
         #注册交换机
         self.sw_register(dpid)
 
