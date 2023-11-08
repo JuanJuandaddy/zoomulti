@@ -1,34 +1,14 @@
-# 原始字典
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontManager
+plt.rcParams['font.sans-serif']='SimHei'
 import numpy as np
-from typing import List
-original_dict = {
-    10: {'pktin_speed': 2.2},
-    11: {'pktin_speed': 0.4},
-    12: {'pktin_speed': 0.8},
-    13: {'pktin_speed': 1.2},
-    14: {'pktin_speed': 1.2},
-    15: {'pktin_speed': 115.8},
-    16: {'pktin_speed': 2.4},
-}
-
-# 按照pkt的值从大到小排序
-sorted_sw_load = {k: v for k, v in sorted(original_dict.items(), key=lambda item: item[1]['pktin_speed'], reverse=True)}
-
-# 创建新的字典，格式为{（order，sw）: pkt的值}
-sw_load = {i + 1: (k, v['pktin_speed']) for i, (k, v) in enumerate(sorted_sw_load.items())}
-
-# 转化为列表
-load_list = [sw_load[i+1][1] for i, k in enumerate(sorted_sw_load.keys())]
-controller_load={
-    1:{
-        "pktin":3,
-        "delay":4
-    },
-2:{
-        "pktin":6,
-        "delay":9
-    }
-}
-print([[k,v["pktin"],v["delay"]] for k,v in controller_load.items()])
-
-
+plt.figure(figsize = (20, 10), dpi = 100)
+x=[0.08,0.17,0.24,0.61,0.7,0.97,3.40]
+y= [100,400,700,1000,1300,1600,1900]
+plt.plot(y, x, c = 'red')
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
+plt.xlabel("PacketIn速率", fontdict = { 'size' : 24 })
+plt.ylabel("控制器处理单个PacketIn平均延迟/ms", fontdict = { 'size' : 24 })
+plt.legend()
+plt.show()

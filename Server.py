@@ -493,10 +493,10 @@ class Server(object):
 
             time.sleep(WRINTE_PKTIN_LOAD_MONITOR)
 
-    def monitor(self):  # 2s打印拓扑
+    def monitor(self):
         while 1:
             time.sleep(10)
-            self.balance_check()
+            #self.balance_check()
             utils.display_controller_load(self.controller_pktin_load)
             #utils.display_controller_sw_load(self.switches_pktin_load)
             utils.display_cluster_status(self.get_avg_load(),self.get_statistic_load_rate())
