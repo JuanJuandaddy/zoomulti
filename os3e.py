@@ -4,6 +4,8 @@ import time
 import random
 import exp_conf
 import re
+from gevent import monkey;monkey.patch_all()
+from gevent import spawn
 from mininet.net import Mininet
 from mininet.topo import Topo
 from mininet.node import  RemoteController
@@ -18,6 +20,7 @@ import numpy as np
 import settings
 from alive_progress import alive_bar
 from threading import Thread
+from StreamInfo import InfoProcess
 """
 此为单连接多控制器，表示每个控制器仅仅连接到自己的交换机，与其他控制器的交换机不存在连接关系
 """
@@ -37,7 +40,7 @@ class multicon_topo(Topo):
         self.ping_dict=[]
         self.args=kwargs#传递的多余参数列表，类型为tuple，**kwargs为字典
         self.subnets=self.split_controllers()#子网ID
-
+        self.log=InfoProcess()
     def split_controllers(self): #返回控制器数目，作为子网数，子网ID由控制器ID为主
         subnets=[]
         for c in self.cons:
@@ -188,56 +191,25 @@ class multicon_topo(Topo):
         time.sleep(settings.PING_INTERVAL)
 
     def start_pktin(self):
-        threads=[]
+        hosts=self.args['hosts']
 
-        hosts = self.args["hosts"]
-
-        TRANSFORM_FACTOR = 26
-
-        controller_load=exp_conf.CONTROLLER_OVERLOAD
-
-        controllers=[controller for controller in controller_load.keys()]
-
-        for controller in controllers:
-
-            controller_num = int(controller.split('C')[1]) - 1
-
-            hs = hosts[controller_num]
-
-            hs.pop(0)
-
-            SUM_PKTIN = controller_load[controller]["RATE"] * settings.CONTROLLER_PKT_THRESHOLD
-
-            SUM_THREAD_NUM = int(SUM_PKTIN / TRANSFORM_FACTOR)
-
-            RES = self.distribute_thread(SUM_THREAD_NUM, len(hs) * settings.EACH_SW_HOSTS_NUM)
-
-            def s(hs,RES):
-                for host, thread in zip(hs, RES):
-
-                    for h, t in zip(host, thread):
-
-                        order = re.findall("\d+", h)[0]
-
-                        h_obj=self.net.get(h)
-
-                        command_args=f'python3 pktin.py {order} {t} &'
-
-                        h_obj.cmd(command_args)
-
-                        time.sleep(1)
-
-            t = Thread(target=s, args=(hs, RES,))
-
-            t.start()
-
-            threads.append(t)
-
-        for th in threads:
-            th.join()
-
+        args = 'python3 pktin.py {order} {size} &'
+        for host in hosts:
+            for h in host:
+                if exp_conf.config[h[0]]!=0:
+                    
+                    self.pktin(host=h[0],args=args,size=exp_conf.config[h[0]])
+                else:
+                    continue
+    def pktin(self,host,args,size):
+        self.log.info(f'start generating pktin: {host} size:{size}')
+        h_obj = self.net.get(host)
+        order = re.search(r'\d+', host).group()
+        command = args.format(order = order, size = size)
+        h_obj.cmd(command)
+        
     def distribute_thread(self,thread_num, host_num):
-
+        
         return self.div_arr(self.get_random_red_packet(thread_num, host_num), settings.EACH_SW_HOSTS_NUM)
 
     def get_random_red_packet(self,total_amount, quantities):
@@ -266,7 +238,9 @@ class multicon_topo(Topo):
         while 1:
             command=input("mininet> ")
             if command=='s':
-                self.start_pktin()
+                t=Thread(target=self.start_pktin)
+                t.start()
+                t.join()
             if command=='cli':
                 self.CLI()
                 break

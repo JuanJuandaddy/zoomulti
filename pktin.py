@@ -1,9 +1,10 @@
 import math
-
 import re
-
+import asyncio
 import random
-import netifaces
+import random
+from gevent import monkey;monkey.patch_all()
+from gevent import spawn
 from scapy.all import *
 import time
 import sys
@@ -128,27 +129,39 @@ if __name__ == '__main__':
 
 # 构造IP请求包
 f=sys.argv[1] # 1101... 1203...1602...
-pkts_speed=int(sys.argv[2])
-EACH_SW_HOSTS_NUM=3 #每台交换机下连接的主机 3
-TRANSFORM_FACTOR = 26
-def run(id):
+# def run(id):
+#
+#     while 1:
+#         # 发送ARP请求包
+#         ip_request = IP(dst=f'192.168.{int(list(f)[0])-1}.4')
+#
+#         sendp(ip_request, iface=f"h{f}-eth0")
+#
+# if __name__ == '__main__':
+#     #ping单个地址： 1 30pkts/s  5 130pkts/s  10 = 250 pkts/s  15 350pkts/s
+#     threads=[]
+#     thread_num=math.ceil(pkts_speed/TRANSFORM_FACTOR)
+#     id = random.randint(1, EACH_SW_HOSTS_NUM + 1)
+#     if thread_num==0:
+#         sys.exit(0)
+#     for i in range(thread_num):
+#         t=threading.Thread(target=run,args=(id,))
+#         t.start()
+#         threads.append(t)
+#     for th in threads:
+#         th.join()
 
-    while 1:
-        # 发送ARP请求包
-        ip_request = IP(dst=f'192.168.{int(list(f)[0])-1}.4')
-
+async def send_arp_request():
+    while True:
+        ip_request = [IP(dst=f'192.168.{int(list(f)[0])-1}.4') for _ in range(10)]
         sendp(ip_request, iface=f"h{f}-eth0")
-        #time.sleep(0.2)
+        await asyncio.sleep(0)  # 控制发送速率，可根据实际需求调整
+
+async def main():
+    tasks = []
+    tasks.append(asyncio.create_task(send_arp_request()))
+
+    await asyncio.gather(*tasks)
+
 if __name__ == '__main__':
-    #ping单个地址： 1 30pkts/s  5 130pkts/s  10 = 250 pkts/s  15 350pkts/s
-    threads=[]
-    thread_num=math.ceil(pkts_speed/TRANSFORM_FACTOR)
-    id = random.randint(1, EACH_SW_HOSTS_NUM + 1)
-    if thread_num==0:
-        sys.exit(0)
-    for i in range(thread_num):
-        t=threading.Thread(target=run,args=(id,))
-        t.start()
-        threads.append(t)
-    for th in threads:
-        th.join()
+    asyncio.run(main())

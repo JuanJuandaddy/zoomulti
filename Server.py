@@ -3,9 +3,7 @@
 """
 该类只负责创建一个Server连接，消息处理交给Client类
 """
-from multiprocessing import Process
-import gevent
-import logging
+from random import Random
 import networkx as nx
 from gevent import monkey;monkey.patch_all()
 import socket
@@ -59,9 +57,9 @@ plan={
 
 }
 """
-
+random=Random()
 class Server(object):
-    def __init__(self, *args):
+    def __init__(self, *args,**kwargs):
         #初始化服务类
         super(Server, self).__init__()
 
@@ -114,7 +112,7 @@ class Server(object):
 
         self.init_adjacency_controller()
         #策略执行
-        self.strategy="vikor"
+        self.strategy="static"
 
     #========初始化TOPO========
     """
@@ -248,16 +246,23 @@ class Server(object):
         if any(result):#需要进行交换机迁移
             overload_controllers=list(filter(exclude_False,result))#过载控制器
             for c in overload_controllers:
-                self.log.warning(f"控制器{c}过载进行交换机迁移")
+                
                 spawn(self.start_controller_switches_migration,c) #对每个决策开启协程处理
         else:#不需要进行交换机迁移
             self.log.info("集群稳定")
 
     def start_controller_switches_migration(self,controller):
         #分析每个控制器的迁移方案，根据迁移方案的不同，执行不同的策略
-        if self.strategy.__eq__('vikor'):
+        self.log.warning(f"控制器{controller}过载进行交换机迁移,执行策略：{self.strategy}")
+        if self.strategy.__eq__('vikor'):#vikor迁移
             spawn(self.vikor_strategy,controller)
-
+        if self.strategy.__eq__('static'):
+            return
+        if self.strategy.__eq__('csm'):#随机迁移
+            spawn(self.csm_strategy,controller)
+        if self.strategy.__eq__('lsm'):#最轻迁移
+            spawn(self.lsm_strategy,controller)
+            
     def search_migration_plan(self,**kwargs):
         """
         核心逻辑
@@ -393,7 +398,6 @@ class Server(object):
             self.controller_to_switches[src].remove(sw)
             #不需要向目的控制器的交换机列表添加迁移交换机，因为迁移交换机在迁移过后会触发目的控制器的sw_register事件，会自动注册
 
-        
     def update_switches(self,src:int,dst:int,m_set:List):
         if src==dst:
             return
@@ -414,6 +418,7 @@ class Server(object):
             self.switches_pktin_load[dst][sw]=self.switches_pktin_load[src][sw]
             
             self.switches_pktin_load[src][sw]=to_zero
+            
     def update_global(self,**kwargs):
         #更新全局消息
         src=kwargs['src_controller']#源控制器
@@ -474,7 +479,34 @@ class Server(object):
         final_migration_plan=plan_with_cost[plan_order]
         utils.display_migration_plan(controller,final_migration_plan)
         spawn(self.start_migration_plan,src_controller=controller,plan=final_migration_plan)#开始迁移
+    
+    def csm_strategy(self,controller):#随机迁移策略
+        switches=self.controller_to_switches[controller]#控制器的掌管的交换机
+        dest_controller = self.adjacency_controller[controller]  # 领接控制器作为迁移的目的控制器
+        plan={
+            "dest_controller":random.choice(dest_controller),
+            "migration_set":[random.choice(switches)]
+        }
+        spawn(self.start_migration_plan,src_controller=controller,plan=plan)
+        
+    def lsm_strategy(self,controller):#最轻迁移策略
+        sw = ""
+        min_load = 0xffffffff
+        switches_pkt_load = deepcopy(self.switches_pktin_load[controller])  # 控制器下所有交换机的负载
+        dest_controller = self.adjacency_controller[controller]  # 领接控制器作为迁移的目的控制器
+        for k, v in switches_pkt_load.items() :
+            load = v.get('pktin')
+            if load < min_load :
+                min_load = load
+                sw = k
+        dst=dest_controller[np.argmin([self.get_controller_load(c) for c in dest_controller])]
 
+        plan = {
+            "dest_controller" : dst,
+            "migration_set" : [sw]
+        }
+        spawn(self.start_migration_plan, src_controller = controller, plan = plan)
+    
     def write_pktin_load(self):
         while True:
             if self.controller_pktin_load:
@@ -496,7 +528,7 @@ class Server(object):
     def monitor(self):
         while 1:
             time.sleep(10)
-            #self.balance_check()
+            self.balance_check()
             utils.display_controller_load(self.controller_pktin_load)
             #utils.display_controller_sw_load(self.switches_pktin_load)
             utils.display_cluster_status(self.get_avg_load(),self.get_statistic_load_rate())
