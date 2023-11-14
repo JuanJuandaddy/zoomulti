@@ -112,7 +112,7 @@ class Server(object):
 
         self.init_adjacency_controller()
         #策略执行
-        self.strategy="static"
+        self.strategy="vikor"
 
     #========初始化TOPO========
     """
@@ -453,7 +453,7 @@ class Server(object):
         
     def vikor_strategy(self,controller):
         switches_pkt_load=deepcopy(self.switches_pktin_load[controller])#控制器下所有交换机的负载
-        switches=self.controller_to_switches[controller]#控制器的掌管的交换机
+        switches=deepcopy(self.controller_to_switches[controller])#控制器的掌管的交换机
         dest_controller=self.adjacency_controller[controller]#领接控制器作为迁移的目的控制器
         cluster_avg_load=self.get_avg_load()#集群的平均负载
         controller_load=self.controller_pktin_load[controller].get('pktin')#控制器的负载
@@ -467,6 +467,7 @@ class Server(object):
         if not migration_plan:
             self.log.warning("没有合适的迁移方案")
             return
+
         plan_with_cost=spawn(self.estimate_cost,plan=migration_plan,controller=controller).get()#评估方案
 
         #构建因子矩阵
@@ -487,6 +488,7 @@ class Server(object):
             "dest_controller":random.choice(dest_controller),
             "migration_set":[random.choice(switches)]
         }
+        utils.display_migration_plan(controller, plan)
         spawn(self.start_migration_plan,src_controller=controller,plan=plan)
         
     def lsm_strategy(self,controller):#最轻迁移策略
@@ -496,7 +498,7 @@ class Server(object):
         dest_controller = self.adjacency_controller[controller]  # 领接控制器作为迁移的目的控制器
         for k, v in switches_pkt_load.items() :
             load = v.get('pktin')
-            if load < min_load :
+            if min_load > load > 20 :
                 min_load = load
                 sw = k
         dst=dest_controller[np.argmin([self.get_controller_load(c) for c in dest_controller])]
@@ -505,6 +507,7 @@ class Server(object):
             "dest_controller" : dst,
             "migration_set" : [sw]
         }
+        utils.display_migration_plan(controller, plan)
         spawn(self.start_migration_plan, src_controller = controller, plan = plan)
     
     def write_pktin_load(self):

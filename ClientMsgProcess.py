@@ -47,11 +47,10 @@ class ClientMsgProcess(object):
         master_controller = msg["master_controller"]
 
         self.client.server.switches[dpid] = master_controller
-
+        
         controller_to_switches=deepcopy(self.client.server.controller_to_switches)
-
         if master_controller not in controller_to_switches.keys():
-            self.client.server.controller_to_switches.setdefault(master_controller,[])
+            self.client.server.controller_to_switches.setdefault(master_controller,[dpid])
         else:
             self.client.server.controller_to_switches[master_controller].append(dpid)
         if not gra.has_node(dpid):
