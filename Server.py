@@ -112,7 +112,7 @@ class Server(object):
 
         self.init_adjacency_controller()
         #策略执行
-        self.strategy="vikor"
+        self.strategy="lsm"
 
     #========初始化TOPO========
     """
@@ -497,7 +497,7 @@ class Server(object):
         switches_pkt_load = deepcopy(self.switches_pktin_load[controller])  # 控制器下所有交换机的负载
         dest_controller = self.adjacency_controller[controller]  # 领接控制器作为迁移的目的控制器
         for k, v in switches_pkt_load.items() :
-            load = v.get('pktin')
+            load = v.get('pktin_speed')
             if min_load > load > 20 :
                 min_load = load
                 sw = k
