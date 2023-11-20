@@ -1,47 +1,98 @@
 # -*-coding:utf-8-*-
 # -*-this is a python script -*-
 #指定表结构
-from sqlalchemy.orm import declarative_base, relationship  # 调用ORM基类
-from sqlalchemy import Column,String,Integer,Float
+import time
+
+from sqlalchemy.orm import declarative_base, relationship,Session  # 调用ORM基类
+from sqlalchemy import Column,String,Integer,Float,Boolean,ForeignKey
 from connect import ConnectDB
 engine=ConnectDB().get_engine()
 Base=declarative_base()
 #每一张表都是一个类
-class Controller(Base):
-    __tablename__="controller"
-    controller_id=Column(Integer,primary_key=True,comment="控制器ID",index=True)#设控制器ID为主键,并为索引
-    packet_in_load=Column(Float,comment="packetin负载")
-    packet_in_delay=Column(Float,comment="packetin处理延迟")
-    switches_load=relationship('SwitchesLoad')
+class User(Base):
+    __tablename__="user"
+    username=Column(String(255),primary_key=True,comment="用户名",unique = True)#设控制器ID为主键,并为索引
+    password=Column(String(255),comment="密码")
+    access=Column(String(255),comment="权限")
     def __init__(self):
         pass
-    def __repr__(self):
-        #返回的对象格式
-        return f"<{self.__class__.__name__}(controller_id={self.controller_id}," \
-               f"packet_in_load={self.packet_in_load},packet_in_delay={self.packet_in_delay})>"
-class SwitchesLoad(Base):
-    __tablename__="switches_load"
-    id=Column(Integer,primary_key=True)
-    master_controller=Column(Integer)
-    packet_in_speed=Column(Float)
-    packet_in_size=Column(Float)
-    packet_in_percentage=Column(Float)
-
+class SwitchesStatus(Base):
+    __tablename__="switches_status"
+    dpid=Column(Integer,primary_key=True,index = True,unique = True)
+    packetin=Column(Float,default = 0)
+    master=Column(Integer)
     def __init__(self):
         pass
-    def __repr__(self):
-        #返回的对象格式
-        return f"<{self.__class__.__name__}(master_controller={self.controller_id}," \
-               f"packet_in_speed={self.packet_in_speed},packet_in_size={self.packet_in_size}," \
-               f"packet_in_percentage={self.packet_in_percentage})>"
-
+class FlowTables(Base):
+    id=Column(Integer,primary_key = True)
+    __tablename__ = "flow_tables"
+    table=Column(String(255))
+    dpid=Column(Integer,index = True)
+    def __init__(self):
+        pass
+class ControllerStatus(Base) :
+    __tablename__ = "controller_status"
+    id = Column(Integer, primary_key = True)
+    name=Column(String(255),unique = True)
+    controller_id=Column(Integer,index = True,unique = True,primary_key = True)
+    packetin=Column(Float,default = 0)
+    loadrate=Column(Float,default = 0)
+    def __init__(self):
+        pass
+class SwitchesMap(Base):
+    __tablename__ = "switches_map"
+    id = Column(Integer, primary_key = True)
+    switch = Column(String(255))
+    master = Column(Integer, index = True)
+    def __init__(self):
+        pass
+class LinkStatus(Base) :
+    __tablename__ = "link_status"
+    id = Column(Integer, primary_key = True)
+    srcnode = Column(String(255))
+    dstnode = Column(String(255))
+    userate=Column(Float,default = 0)
+    droprate = Column(Float, default = 0)
+    portspeed = Column(Float, default = 0)
+    isadjacency=Column(Boolean)
+    def __init__(self):
+        pass
+class NetworkStatus(Base) :
+    __tablename__ = "network_status"
+    id = Column(Integer, primary_key = True)
+    linkuserate=Column(Float,default = 0)
+    throughoutput=Column(Float,default = 0)
+    def __init__(self):
+        pass
+class RouteStatus(Base) :
+    __tablename__ = "route_status"
+    id = Column(Integer, primary_key = True)
+    srcnode=Column(String(255))
+    dstnode=Column(String(255))
+    currentlintuserate=Column(Float,default = 0)
+    def __init__(self):
+        pass
+class HostStatus(Base) :
+    __tablename__ = "host_status"
+    id = Column(Integer, primary_key = True)
+    ip=Column(String(255))
+    mac=Column(String(255))
+    dpid=Column(Integer)
+    name=Column(String(255),unique = True)
+    def __init__(self):
+        pass
 class CreateTables(object):
     def __init__(self,engine):
         self.engine=engine
 
     def create(self):
         Base.metadata.create_all(self.engine)
-
+    def delete_all_tables(self):
+        if input("该操作会删除数据库中全部的表，请按y确定\n请输入： ").__eq__('y'):
+            Base.metadata.drop_all(self.engine)
+        else:
+            print("操作失败")
 
 if __name__ == '__main__':
-    CreateTables(engine=engine).create()
+    obj=CreateTables(engine=engine)
+    obj.create()
