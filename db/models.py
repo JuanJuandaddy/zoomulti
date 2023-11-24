@@ -5,10 +5,10 @@ import time
 
 from sqlalchemy.orm import declarative_base, relationship,Session  # 调用ORM基类
 from sqlalchemy import Column,String,Integer,Float,Boolean,ForeignKey
-from connect import ConnectDB
-engine=ConnectDB().get_engine()
+from connect import engine
+engine=engine
 Base=declarative_base()
-#每一张表都是一个类
+#每一张表都是一个类,定义了一些表结构
 class User(Base):
     __tablename__="user"
     username=Column(String(255),primary_key=True,comment="用户名",unique = True)#设控制器ID为主键,并为索引
@@ -24,7 +24,7 @@ class SwitchesStatus(Base):
     def __init__(self):
         pass
 class FlowTables(Base):
-    id=Column(Integer,primary_key = True)
+    id=Column(Integer,primary_key = True,autoincrement = True)
     __tablename__ = "flow_tables"
     table=Column(String(255))
     dpid=Column(Integer,index = True)
@@ -32,7 +32,7 @@ class FlowTables(Base):
         pass
 class ControllerStatus(Base) :
     __tablename__ = "controller_status"
-    id = Column(Integer, primary_key = True)
+    id = Column(Integer, primary_key = True,autoincrement = True)
     name=Column(String(255),unique = True)
     controller_id=Column(Integer,index = True,unique = True,primary_key = True)
     packetin=Column(Float,default = 0)
@@ -41,14 +41,14 @@ class ControllerStatus(Base) :
         pass
 class SwitchesMap(Base):
     __tablename__ = "switches_map"
-    id = Column(Integer, primary_key = True)
+    id = Column(Integer, primary_key = True,autoincrement = True)
     switch = Column(String(255))
     master = Column(Integer, index = True)
     def __init__(self):
         pass
 class LinkStatus(Base) :
     __tablename__ = "link_status"
-    id = Column(Integer, primary_key = True)
+    id = Column(Integer, primary_key = True,autoincrement = True)
     srcnode = Column(String(255))
     dstnode = Column(String(255))
     userate=Column(Float,default = 0)
@@ -59,14 +59,14 @@ class LinkStatus(Base) :
         pass
 class NetworkStatus(Base) :
     __tablename__ = "network_status"
-    id = Column(Integer, primary_key = True)
+    id = Column(Integer, primary_key = True,autoincrement = True)
     linkuserate=Column(Float,default = 0)
     throughoutput=Column(Float,default = 0)
     def __init__(self):
         pass
 class RouteStatus(Base) :
     __tablename__ = "route_status"
-    id = Column(Integer, primary_key = True)
+    id = Column(Integer, primary_key = True,autoincrement = True)
     srcnode=Column(String(255))
     dstnode=Column(String(255))
     currentlintuserate=Column(Float,default = 0)
@@ -74,7 +74,7 @@ class RouteStatus(Base) :
         pass
 class HostStatus(Base) :
     __tablename__ = "host_status"
-    id = Column(Integer, primary_key = True)
+    id = Column(Integer, primary_key = True,autoincrement = True)
     ip=Column(String(255))
     mac=Column(String(255))
     dpid=Column(Integer)
@@ -94,5 +94,7 @@ class CreateTables(object):
             print("操作失败")
 
 if __name__ == '__main__':
-    obj=CreateTables(engine=engine)
-    obj.create()
+    pass
+    #obj=CreateTables(engine=engine)
+    #obj.create()
+    #obj.delete_all_tables()

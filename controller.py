@@ -6,13 +6,12 @@ import re
 import networkx as nx
 import sys
 import numpy as np
-from kazoo.client import KazooClient
 from ConRec import ConRec
 from ConSend import ConSend
 import Logger
 import StreamInfo
 import settings
-
+from db.connect import *
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
