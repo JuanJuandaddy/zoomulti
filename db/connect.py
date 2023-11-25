@@ -16,4 +16,4 @@ class ConnectDB(object):
 db=ConnectDB()
 
 engine=db.get_engine()
-session=db.get_session()
+session=db.get_session()()

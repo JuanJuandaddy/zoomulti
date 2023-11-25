@@ -24,6 +24,7 @@ from typing import List,Dict
 import utils
 from vikor import Vikor
 from copy import deepcopy
+from db.core import *
 """
 服务初始信息
 """
@@ -33,7 +34,7 @@ PORT=settings.PORT          #端口号
 
 WAIT_CONNECT=settings.WAIT_CONNECT  #最大等待连接数
 
-WRINTE_PKTIN_LOAD_MONITOR=settings.WRINTE_PKTIN_LOAD_MONITOR     # 获取pktin负载的周期
+SAVE_DATA_PERIOD=10 #保存到数据库的周期间隔
 
 CONTROLLER_LOAD_THRESHOLD=settings.CONTROLLER_PKT_THRESHOLD #控制器负载阈值
 
@@ -185,8 +186,6 @@ class Server(object):
         print("Server start...")
         time.sleep(5)
         spawn(self.monitor)  # 协程监控，打印全局拓扑
-
-        #spawn(self.write_pktin_load) #记录pktin负载
 
     def get_statistic_load_rate(self):
         #获取控制器之间的负载均衡度
@@ -510,31 +509,19 @@ class Server(object):
         utils.display_migration_plan(controller, plan)
         spawn(self.start_migration_plan, src_controller = controller, plan = plan)
     
-    def write_pktin_load(self):
-        while True:
-            if self.controller_pktin_load:
-
-                for cid in self.controller_pktin_load.keys():
-
-                    with open(f"/home/ryu/multicontroller/zoomulti/performance/speed_delay/controller_{cid}","w+") as f:
-
-                        f.writelines(f'cid={cid}\ntotal_pkt_speed={self.controller_pktin_load[cid]["pktin"]}\ntotal_pkt_delay={self.controller_pktin_load[cid]["delay"]}\n')
-
-                        for sws in self.switches_pktin_load[cid].keys():
-
-                            f.writelines(f'[dpid={sws}\npktin_speed={self.switches_pktin_load[cid][sws]["pktin_speed"]}\npercentage={self.switches_pktin_load[cid][sws]["percentage"]}\n'
-                                 
-                                  f'pktin_size={self.switches_pktin_load[cid][sws]["pktin_size"]}]\n')
-
-            time.sleep(WRINTE_PKTIN_LOAD_MONITOR)
-
+    def save_cluster_date(self):
+        
+        spawn(Save_Switches_Status(self.switches_pktin_load))
+        
+        spawn(Save_Controller_Status(self.controller_pktin_load))
+        
+        spawn(Save_Switches_Map(self.controller_to_switches))
     def monitor(self):
         while 1:
-            time.sleep(10)
-            self.balance_check()
-            utils.display_controller_load(self.controller_pktin_load)
-            #utils.display_controller_sw_load(self.switches_pktin_load)
-            utils.display_cluster_status(self.get_avg_load(),self.get_statistic_load_rate())
+            time.sleep(SAVE_DATA_PERIOD)
+            #self.balance_check()
+            self.save_cluster_date()
+            
 
 def main():
     server=Server()

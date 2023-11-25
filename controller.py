@@ -207,19 +207,19 @@ class Controller(app_manager.RyuApp):
                     "switches_pktin":[(dp,self.switches_pktin_load[dp]["speed"],self.switches_pktin_load[dp]["size"]) for dp in self.switches_pktin_load.keys()] #返回的是一个列表
                 }
                 })
-
+                
                 self.HandleSendMsg.send_to_queue(msg)
-
+                
                 self.old_pkt_in_num=self.pkt_in_num
 
                 self.handler_delay=0
 
-                time.sleep(PERFORMANCE_STATISTIC_ECHO)
-
+                hub.sleep(PERFORMANCE_STATISTIC_ECHO)
+                
 
             if self.pkt_in_num==0:
 
-                time.sleep(settings.PERFORMANCE_STATISTIC_ECHO)
+                hub.sleep(settings.PERFORMANCE_STATISTIC_ECHO)
 
     @staticmethod
     def request_stats(datapath):

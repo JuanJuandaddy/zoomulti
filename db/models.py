@@ -8,7 +8,7 @@ from sqlalchemy import Column,String,Integer,Float,Boolean,ForeignKey
 from connect import engine
 engine=engine
 Base=declarative_base()
-#每一张表都是一个类,定义了一些表结构
+#每一张表都是一个类,定义了一些表结构,所有的auto字段可以不指定
 class User(Base):
     __tablename__="user"
     username=Column(String(255),primary_key=True,comment="用户名",unique = True)#设控制器ID为主键,并为索引
