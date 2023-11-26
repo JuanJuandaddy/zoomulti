@@ -7,23 +7,26 @@ from typing import  Dict,List
 
 def Save_Switches_Map(status:Dict[int,List]):
 	# 控制器控制的交换机表 {c1:[s11,s12]....}
+	sql = """
+    INSERT INTO switches_map (switch, master) 
+    VALUES (:switch, :master) 
+    ON DUPLICATE KEY UPDATE master = :master;
+    """
+	def bulk_operation(data:List[Dict]):
+		session.execute(sql, data)
+		session.commit()
 	try :
 		bulk = []
 		for k, v in status.items() :
 			for sw in v:
-				exist=session.query(SwitchesMap).filter_by(switch=f's{sw}').first()
-				if exist:
-					pass
 				bulk.append({
 					"switch":f's{sw}',
 					"master":k
 				})
-		
-		session.bulk_insert_mappings(SwitchesMap, bulk)
+				bulk_operation(bulk)
+
 	except Exception as e :
 		raise e
-	else :
-		session.commit()
 def Save_Switches_Status(status:Dict[int,Dict]):
 	
 	##{c1:{sw1:{pktin_speed:xxx,percentage：xxx,pktin_size:xxx}....}}
