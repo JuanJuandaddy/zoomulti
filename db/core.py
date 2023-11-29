@@ -14,51 +14,99 @@ def Save_Switches_Map(status:Dict[int,List]):
     """
 	def bulk_operation(data:List[Dict]):
 		session.execute(sql, data)
-		session.commit()
+
 	try :
 		bulk = []
-		for k, v in status.items() :
-			for sw in v:
+		for controller, switches in status.items() :
+			for sw in switches:
 				bulk.append({
 					"switch":f's{sw}',
-					"master":k
+					"master":controller
 				})
-				bulk_operation(bulk)
+		bulk_operation(bulk)
 
 	except Exception as e :
 		raise e
-def Save_Switches_Status(status:Dict[int,Dict]):
+def Save_Switches_Status(status:Dict[int,Dict[int,Dict]]):
 	
 	##{c1:{sw1:{pktin_speed:xxx,percentage：xxx,pktin_size:xxx}....}}
+	sql =  """
+		    INSERT INTO switches_status (dpid, packetin, master)
+		    VALUES (:dpid, :packetin, :master)
+		    ON DUPLICATE KEY UPDATE packetin = :packetin, master = :master;
+            """
+
+	def bulk_operation (data: List[Dict]) :
+		session.execute(sql, data)
+
 	try:
 		bulk=[]
-		for k,v in status.items():
-			bulk.append({
-			
-			})
+		for controller,switches in status.items():
+			for sw,info in switches.items():
+				bulk.append({
+					"dpid":f's{sw}',
+					"packetin":info.get('pktin_speed'),
+					"master":controller
+				})
 		
-		session.bulk_insert_mappings(SwitchesStatus,bulk)
+		bulk_operation(bulk)
 	except Exception as e:
 		raise e
 	else:
 		session.commit()
-
-
 def Save_Controller_Status (status:Dict[int,Dict]) :
 	# {c1:{pktin:xxx,delay:xxx}}
+	sql = """
+	    INSERT INTO controller_status (name, controller_id, packetin, loadrate)
+	    VALUES (:name, :controller_id, :packetin, :loadrate)
+	    ON DUPLICATE KEY UPDATE packetin = :packetin, loadrate = :loadrate;
+    """
+	
+	def bulk_operation (data: List[Dict]) :
+		session.execute(sql, data)
+		
 	try :
 		
 		bulk=[]
-		for k,v in status.items():
-			
+		for controller,load in status.items():
 			bulk.append({
-				"name":f'controller{k}',
-				"packetin":v.get('pktin',0),
-				"loadrate" : round(v.get('pktin', 0)/1600,5),
-				"controller_id":k
+				"name":f'controller{controller}',
+				"packetin":load.get('pktin',0),
+				"loadrate" : round(load.get('pktin', 0)/1600,5),
+				"controller_id":controller
 			})
-			
-		session.bulk_insert_mappings(ControllerStatus,bulk)
+		bulk_operation(bulk)
+	except Exception as e :
+		raise e
+	else :
+		session.commit()
+def Save_Flow_Tables(status:List[Dict]):
+	#status:[{dpid:table}.....]
+	sql="""
+		INSERT INTO flow_tables (dpid, table)
+	    VALUES (:dpid, :table)
+	    ON DUPLICATE KEY UPDATE dpid = :dpid, table = :table;
+    """
+	def bulk_operation (data: List[Dict]) :
+		session.execute(sql, data)
+	try:
+		bulk_operation(status)
+	except Exception as e:
+		raise e
+	else:
+		session.commit()
+def Save_Route_Status(status:Dict):
+	sql = """
+			INSERT INTO flow_tables (dpid, table)
+		    VALUES (:dpid, :table)
+		    ON DUPLICATE KEY UPDATE dpid = :dpid, table = :table;
+	    """
+	
+	def bulk_operation (data:Dict) :
+		session.execute(sql, data)
+	
+	try :
+		bulk_operation(status)
 	except Exception as e :
 		raise e
 	else :

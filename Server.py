@@ -6,6 +6,7 @@
 from random import Random
 import networkx as nx
 from gevent import monkey;monkey.patch_all()
+import gevent
 import socket
 import time
 import contextlib
@@ -509,18 +510,21 @@ class Server(object):
         utils.display_migration_plan(controller, plan)
         spawn(self.start_migration_plan, src_controller = controller, plan = plan)
     
-    def save_cluster_date(self):
+    def save_cluster_data(self):
         
         spawn(Save_Switches_Status(self.switches_pktin_load))
         
         spawn(Save_Controller_Status(self.controller_pktin_load))
         
         spawn(Save_Switches_Map(self.controller_to_switches))
+        
+        
+        
     def monitor(self):
         while 1:
-            time.sleep(SAVE_DATA_PERIOD)
+            gevent.sleep(SAVE_DATA_PERIOD)
             #self.balance_check()
-            self.save_cluster_date()
+            self.save_cluster_data()
             
 
 def main():

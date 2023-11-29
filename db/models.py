@@ -27,7 +27,7 @@ class FlowTables(Base):
     id=Column(Integer,primary_key = True,autoincrement = True)
     __tablename__ = "flow_tables"
     table=Column(String(255))
-    dpid=Column(Integer,index = True)
+    dpid=Column(Integer,index = True,unique = True)
     def __init__(self):
         pass
 class ControllerStatus(Base) :
@@ -42,7 +42,7 @@ class ControllerStatus(Base) :
 class SwitchesMap(Base):
     __tablename__ = "switches_map"
     id = Column(Integer, primary_key = True,autoincrement = True)
-    switch = Column(String(255))
+    switch = Column(String(255),unique = True)
     master = Column(Integer, index = True)
     def __init__(self):
         pass
@@ -54,7 +54,6 @@ class LinkStatus(Base) :
     userate=Column(Float,default = 0)
     droprate = Column(Float, default = 0)
     portspeed = Column(Float, default = 0)
-    isadjacency=Column(Boolean)
     def __init__(self):
         pass
 class NetworkStatus(Base) :
@@ -67,18 +66,9 @@ class NetworkStatus(Base) :
 class RouteStatus(Base) :
     __tablename__ = "route_status"
     id = Column(Integer, primary_key = True,autoincrement = True)
-    srcnode=Column(String(255))
-    dstnode=Column(String(255))
-    currentlintuserate=Column(Float,default = 0)
-    def __init__(self):
-        pass
-class HostStatus(Base) :
-    __tablename__ = "host_status"
-    id = Column(Integer, primary_key = True,autoincrement = True)
-    ip=Column(String(255))
-    mac=Column(String(255))
-    dpid=Column(Integer)
-    name=Column(String(255),unique = True)
+    srcnode=Column(String(255))#必须是主机节点
+    dstnode=Column(String(255))#必须是主机节点
+    currentpath=Column(String(255))#转发路径
     def __init__(self):
         pass
 class CreateTables(object):
@@ -95,6 +85,6 @@ class CreateTables(object):
 
 if __name__ == '__main__':
     pass
-    #obj=CreateTables(engine=engine)
+    obj=CreateTables(engine=engine)
     #obj.create()
-    #obj.delete_all_tables()
+    obj.delete_all_tables()

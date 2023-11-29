@@ -12,6 +12,8 @@ import Logger
 import StreamInfo
 import settings
 from db.connect import *
+from db.core import *
+from db.config import table_template
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -746,19 +748,43 @@ class Controller(app_manager.RyuApp):
         :return:
         """
         ip_src,ip_dst=pair[0],pair[1]
+        bulk=[]
+        
         for index,dpid in enumerate(path[:-1]):
             out_port=self.graph[path[index]][path[index+1]]['src_port']
             datapath=self.get_datapath(dpid)
             ofproto = datapath.ofproto
             parser = datapath.ofproto_parser
-
+            bulk.append({
+                "dpid":dpid,
+                "table":table_template.format_map(
+                    {
+                        "src":ip_src,
+                        "dst":ip_dst,
+                        "outport":out_port,
+                        "priority":SW_TO_SW_PRIORITY,
+                        "protocol":ether.ETH_TYPE_IP,
+                        "idle_timeout":IDLE_TIME_OUT,
+                        "hard_timeout":HARD_TIME_OUT,
+                    }
+                )
+            })
             match= parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_src=ip_src,ipv4_dst=ip_dst)
 
             actions=[parser.OFPActionOutput(out_port)]
 
-            self.test_add_flow(dp=datapath,p=SW_TO_SW_PRIORITY,match=match,actions=actions,idle_timeout=IDLE_TIME_OUT,hard_timeout=HARD_TIME_OUT)
-
+            self.add_flow(dp=datapath,p=SW_TO_SW_PRIORITY,match=match,actions=actions,idle_timeout=IDLE_TIME_OUT,hard_timeout=HARD_TIME_OUT)
+            
+        Save_Flow_Tables(bulk)
+        
+        Save_Route_Status({
+            "srcnode":ip_src,
+            "dstnode":ip_dst,
+            "currentpath":path
+        })
+        
     def install_sw_to_host_flowmod(self,type,dpid,ip,port):
+        bulk=[]
         """
         不考虑双向，因为ping包属于ICMP包类型，会有回文包，会让src_dpid变成dst_dpid，故此时不需要安装src_dpid的flowmod
         :param type:匹配的包类型，一般为IPv4包
@@ -774,9 +800,24 @@ class Controller(app_manager.RyuApp):
         match=parser.OFPMatch(eth_type=type,ipv4_dst=ip)
 
         actions=[parser.OFPActionOutput(port)]
-
+        bulk.append({
+            "dpid" : dpid,
+            "table" : table_template.format_map(
+                {
+                    "src" : "any",
+                    "dst" : ip,
+                    "outport" : port,
+                    "priority" : SW_TO_HOST_PRIORITY,
+                    "protocol" : type,
+                    "idle_timeout" : IDLE_TIME_OUT,
+                    "hard_timeout" : HARD_TIME_OUT,
+                }
+            )
+        })
 
         self.add_flow(dp=datapath, p=SW_TO_HOST_PRIORITY, match=match, actions=actions, idle_timeout=IDLE_TIME_OUT,hard_timeout=HARD_TIME_OUT)  # 接入层流表不过期
+        
+        Save_Flow_Tables(bulk)
     # ===================================外域类======================================
     @staticmethod
     def bytes_to_hexstr(data):
@@ -803,6 +844,7 @@ class Controller(app_manager.RyuApp):
         self.HandleSendMsg.send_to_queue(msg)
 
     def handle_flow_mod(self,dpid,ip_src,ip_dst,out_port,priority,idle_time,hard_time):
+        bulk=[]
         datapath=self.get_datapath(dpid)
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -810,8 +852,26 @@ class Controller(app_manager.RyuApp):
         match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_src=ip_src, ipv4_dst=ip_dst)
 
         actions = [parser.OFPActionOutput(out_port)]
+        
+        bulk.append({
+            "dpid" : dpid,
+            "table" : table_template.format_map(
+                {
+                    "src" : ip_src,
+                    "dst" : ip_dst,
+                    "outport" : out_port,
+                    "priority" : priority,
+                    "protocol" : ether.ETH_TYPE_IP,
+                    "idle_timeout" : idle_time,
+                    "hard_timeout" : hard_time,
+                }
+            )
+        })
 
         self.add_flow(dp=datapath, p=priority, match=match, actions=actions, idle_timeout=idle_time, hard_timeout=hard_time)
+        
+        Save_Flow_Tables(bulk)
+        
     # ===================================add_flow======================================
     @staticmethod
     def add_flow(dp, p, match, actions, idle_timeout, hard_timeout):
@@ -826,7 +886,7 @@ class Controller(app_manager.RyuApp):
         """
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
-
+        
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
         mod = parser.OFPFlowMod(datapath=dp, priority=p,
@@ -866,22 +926,56 @@ class Controller(app_manager.RyuApp):
         :param datapath: 交换机实例对象
         :return: 安装table-miss表项
         """
+        bulk=[]
         ofproto=datapath.ofproto
         parser=datapath.ofproto_parser
         match=parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
+        bulk.append({
+            "dpid" : datapath.id,
+            "table" : table_template.format_map(
+                {
+                    "src" : "local",
+                    "dst" : "controller",
+                    "outport" : ofproto.OFPP_CONTROLLER,
+                    "priority" : TABLEMISS_PRIORITY,
+                    "protocol" : "table-miss",
+                    "idle_timeout" : IDLE_TIME_OUT,
+                    "hard_timeout" : HARD_TIME_OUT,
+                }
+            )
+        })
         self.add_flow(dp=datapath, p=TABLEMISS_PRIORITY, match=match, actions=actions, idle_timeout=IDLE_TIME_OUT, hard_timeout=HARD_TIME_OUT)
+        
+        Save_Flow_Tables(bulk)
     # ===================================ignore_ipv6======================================
     def ignore_ipv6(self,datapath):
         """
         :param datapath: 交换机实例对象
         :return: 忽略IPV6报文
         """
+        bulk=[]
         parser = datapath.ofproto_parser
         match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IPV6)
         actions = []
+        bulk.append({
+            "dpid" : datapath.id,
+            "table" : table_template.format_map(
+                {
+                    "src" : "local",
+                    "dst" : "None",
+                    "outport" : "None",
+                    "priority" : IPV6_PRIORITY,
+                    "protocol" : "ignore-ipv6",
+                    "idle_timeout" : IDLE_TIME_OUT,
+                    "hard_timeout" : HARD_TIME_OUT,
+                }
+            )
+        })
         self.add_flow(dp=datapath, p=IPV6_PRIORITY, match=match, actions=actions,idle_timeout = IDLE_TIME_OUT,hard_timeout =HARD_TIME_OUT)
+
+        Save_Flow_Tables(bulk)
     # ===================================Packet_Out类======================================
     @staticmethod
     def build_packet_out(datapath, buffer_id, src_port, dst_port, data):
