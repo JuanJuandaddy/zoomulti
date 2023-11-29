@@ -4,7 +4,7 @@
 import time
 
 from sqlalchemy.orm import declarative_base, relationship,Session  # 调用ORM基类
-from sqlalchemy import Column,String,Integer,Float,Boolean,ForeignKey
+from sqlalchemy import Column, String, Integer, Float, Boolean, ForeignKey, UniqueConstraint
 from connect import engine
 engine=engine
 Base=declarative_base()
@@ -69,6 +69,7 @@ class RouteStatus(Base) :
     srcnode=Column(String(255))#必须是主机节点
     dstnode=Column(String(255))#必须是主机节点
     currentpath=Column(String(255))#转发路径
+    __table_args__ = (UniqueConstraint('srcnode', 'dstnode'),)#表示该组合组成的键值是唯一的
     def __init__(self):
         pass
 class CreateTables(object):
